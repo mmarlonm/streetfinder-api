@@ -96,6 +96,16 @@ router.delete('/:id', protect, requireRole('vendor'), async (req: AuthRequest, r
     const vp = await VendorProfile.findOne({ userId: req.user!._id });
     if (!vp) { res.status(404).json({ success: false, message: 'Perfil no encontrado' }); return; }
     await Promotion.collection.deleteOne({ _id: new (require('mongoose').Types.ObjectId)(req.params.id), vendorId: vp._id });
+    
+    // Emitir en tiempo real que la promoción ha finalizado
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('vendor:promotion', {
+        vendorId: vp._id.toString(),
+        promotion: null,
+      });
+    }
+
     res.json({ success: true });
   } catch (e) { res.status(500).json({ success: false, message: 'Error al eliminar promoción' }); }
 });
