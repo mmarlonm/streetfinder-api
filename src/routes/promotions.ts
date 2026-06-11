@@ -3,6 +3,7 @@ import Promotion from '../models/Promotion';
 import VendorProfile from '../models/VendorProfile';
 import User from '../models/User';
 import { protect, requireRole, AuthRequest } from '../middleware/auth';
+import { io } from '../index';
 
 const router = Router();
 
@@ -73,6 +74,14 @@ router.post('/', protect, requireRole('vendor'), async (req: AuthRequest, res: R
     }).lean();
     const tokens = nearbyUsers.map(u => u.pushToken!).filter(Boolean);
     await sendExpoPush(tokens, `🎯 Promoción cerca de ti`, `${vp.businessName}: ${title}${discount ? ` — ${discount}% OFF` : ''}`, { type: 'promotion', promotionId: promo._id.toString(), vendorId: vp._id.toString() });
+
+    // Emitir la promoción en tiempo real a todos los sockets conectados
+    if (io) {
+      io.emit('vendor:promotion', {
+        vendorId: vp._id.toString(),
+        promotion: promo,
+      });
+    }
 
     res.status(201).json({ success: true, promotion: promo });
   } catch (e: any) {

@@ -204,7 +204,7 @@ router.get('/nearby-clients', protect, requireRole('vendor'), async (req: AuthRe
       lastLat: { $exists: true, $ne: null },
       lastLng: { $exists: true, $ne: null },
       updatedAt: { $gte: fourHoursAgo }
-    }).select('name avatar phone lastLat lastLng updatedAt').lean();
+    }).select('name avatar phone lastLat lastLng craving updatedAt').lean();
 
     // Calcular distancia de Haversine en metros
     const R = 6371e3; // Radio de la tierra en metros
@@ -226,6 +226,7 @@ router.get('/nearby-clients', protect, requireRole('vendor'), async (req: AuthRe
       phone: c.phone,
       latitude: c.lastLat,
       longitude: c.lastLng,
+      craving: c.craving,
       lastActive: c.updatedAt
     }));
 

@@ -120,6 +120,35 @@ export const setupSocketHandlers = (io: Server): void => {
       socket.leave(`vendor:${vendorId}`);
     });
 
+    // ─── VENDOR: Offer products to client in real-time ────────────
+    socket.on('vendor:send-offer', async (payload: { clientId: string, vendorId: string }) => {
+      try {
+        const { clientId, vendorId } = payload;
+        if (!clientId || !vendorId) return;
+
+        // Buscar información completa del negocio
+        const vendor = await VendorProfile.findById(vendorId).populate('userId', 'name avatar phone').lean();
+        if (!vendor) return;
+
+        // Emitir oferta a todos los clientes (ellos filtran localmente por clientId)
+        io.emit('vendor:offer', {
+          clientId,
+          vendor: {
+            _id: vendor._id.toString(),
+            businessName: vendor.businessName,
+            category: vendor.category,
+            rating: vendor.rating,
+            totalReviews: vendor.totalReviews,
+            phone: (vendor.userId as any)?.phone,
+            name: (vendor.userId as any)?.name,
+          }
+        });
+        console.log(`✉️ Oferta en tiempo real enviada de ${vendor.businessName} a cliente ${clientId}`);
+      } catch (error) {
+        console.error('vendor:send-offer error:', error);
+      }
+    });
+
     // ─── DISCONNECT ───────────────────────────────────────────────
     socket.on('disconnect', async () => {
       console.log(`🔌 Socket desconectado: ${socket.id}`);

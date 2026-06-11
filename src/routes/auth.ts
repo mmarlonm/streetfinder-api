@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import VendorProfile from '../models/VendorProfile';
 import { protect, AuthRequest } from '../middleware/auth';
+import { io } from '../index';
 
 const router = Router();
 
@@ -195,6 +196,33 @@ router.patch('/location', protect, async (req: AuthRequest, res: Response): Prom
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error' });
+  }
+});
+
+// PUT /api/auth/craving — Update user craving and emit in real-time
+router.put('/craving', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { craving } = req.body;
+    const user = await User.findByIdAndUpdate(req.user!._id, { craving: craving?.trim() || null }, { new: true });
+    if (!user) { res.status(404).json({ success: false, message: 'Usuario no encontrado' }); return; }
+
+    // Emitir el antojo en tiempo real a todos los sockets conectados
+    if (io) {
+      io.emit('client:craving', {
+        _id: user._id.toString(),
+        name: user.name,
+        avatar: user.avatar,
+        phone: user.phone,
+        craving: user.craving || null,
+        latitude: user.lastLat,
+        longitude: user.lastLng,
+      });
+    }
+
+    res.json({ success: true, craving: user.craving });
+  } catch (error) {
+    console.error('Craving error:', error);
+    res.status(500).json({ success: false, message: 'Error al actualizar antojo' });
   }
 });
 

@@ -12,6 +12,7 @@ export interface IUser extends Document {
   pushToken?: string;
   lastLat?: number;
   lastLng?: number;
+  craving?: string;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -58,6 +59,7 @@ const UserSchema = new Schema(
     },
     lastLat: { type: Number },
     lastLng: { type: Number },
+    craving: { type: String, default: null },
   },
   {
     timestamps: true,
