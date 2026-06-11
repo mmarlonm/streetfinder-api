@@ -47,11 +47,11 @@ router.post('/', protect, requireRole('vendor'), async (req: AuthRequest, res: R
   try {
     const vp = await VendorProfile.findOne({ userId: req.user!._id });
     if (!vp) { res.status(404).json({ success: false, message: 'Perfil de vendedor no encontrado' }); return; }
-    if (!vp.isActive || !vp.currentLocation) {
+    if (!vp.isActive) {
       res.status(400).json({ success: false, message: 'Debes estar activo en el mapa para crear una promoción' }); return;
     }
 
-    const { title, description, imageBase64, price, discount, durationDays } = req.body;
+    const { title, description, imageBase64, price, discount, durationDays, latitude, longitude } = req.body;
     if (!title || !durationDays) {
       res.status(400).json({ success: false, message: 'Título y duración son requeridos' }); return;
     }
@@ -61,18 +61,24 @@ router.post('/', protect, requireRole('vendor'), async (req: AuthRequest, res: R
       vendorId: vp._id, title, description, imageBase64, price, discount, durationDays, isActive: true, expiresAt,
     });
 
-    // Notify nearby clients via push
-    const [lng, lat] = vp.currentLocation.coordinates;
-    const R = 6371000; // Earth radius in meters
-    const latDelta = (2000 / R) * (180 / Math.PI);
-    const lngDelta = latDelta / Math.cos(lat * Math.PI / 180);
-    const nearbyUsers = await User.find({
-      pushToken: { $exists: true, $ne: null },
-      lastLat: { $gte: lat - latDelta, $lte: lat + latDelta },
-      lastLng: { $gte: lng - lngDelta, $lte: lng + lngDelta },
-    }).lean();
-    const tokens = nearbyUsers.map(u => u.pushToken!).filter(Boolean);
-    await sendExpoPush(tokens, `🎯 Promoción cerca de ti`, `${vp.businessName}: ${title}${discount ? ` — ${discount}% OFF` : ''}`, { type: 'promotion', promotionId: promo._id.toString(), vendorId: vp._id.toString() });
+    // Use currentLocation from DB, or fallback to body coordinates
+    const coords = vp.currentLocation?.coordinates
+      ? { lat: vp.currentLocation.coordinates[1], lng: vp.currentLocation.coordinates[0] }
+      : { lat: latitude as number, lng: longitude as number };
+
+    // Notify nearby clients via push (only if we have valid coords)
+    if (coords.lat && coords.lng) {
+      const R = 6371000;
+      const latDelta = (2000 / R) * (180 / Math.PI);
+      const lngDelta = latDelta / Math.cos(coords.lat * Math.PI / 180);
+      const nearbyUsers = await User.find({
+        pushToken: { $exists: true, $ne: null },
+        lastLat: { $gte: coords.lat - latDelta, $lte: coords.lat + latDelta },
+        lastLng: { $gte: coords.lng - lngDelta, $lte: coords.lng + lngDelta },
+      }).lean();
+      const tokens = nearbyUsers.map(u => u.pushToken!).filter(Boolean);
+      await sendExpoPush(tokens, `🎯 Promoción cerca de ti`, `${vp.businessName}: ${title}${discount ? ` — ${discount}% OFF` : ''}`, { type: 'promotion', promotionId: promo._id.toString(), vendorId: vp._id.toString() });
+    }
 
     // Emitir la promoción en tiempo real a todos los sockets conectados
     const io = req.app.get('io');
