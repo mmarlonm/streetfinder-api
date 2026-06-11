@@ -29,7 +29,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Health check ─────────────────────────────────────────────────
-app.get('/api/health', (_req, res) => {
+app.get(['/', '/api/health'], (_req, res) => {
   res.json({
     success: true,
     message: '🚀 StreetFinder API corriendo',
