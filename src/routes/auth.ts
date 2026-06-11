@@ -145,4 +145,58 @@ router.get('/me', protect, async (req: AuthRequest, res: Response): Promise<void
   }
 });
 
+// PUT /api/auth/avatar — Update user avatar (base64)
+router.put('/avatar', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { avatar } = req.body;
+    if (!avatar) { res.status(400).json({ success: false, message: 'Avatar requerido' }); return; }
+    const user = await User.findByIdAndUpdate(req.user!._id, { avatar }, { new: true });
+    if (!user) { res.status(404).json({ success: false, message: 'Usuario no encontrado' }); return; }
+    res.json({ success: true, avatar: user.avatar });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error al actualizar avatar' });
+  }
+});
+
+// PUT /api/auth/profile — Update user profile (name, phone)
+router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { name, phone } = req.body;
+    const updates: Record<string, unknown> = {};
+    if (name) updates.name = name;
+    if (phone !== undefined) updates.phone = phone;
+    const user = await User.findByIdAndUpdate(req.user!._id, updates, { new: true });
+    if (!user) { res.status(404).json({ success: false, message: 'Usuario no encontrado' }); return; }
+    res.json({ success: true, user: { _id: user._id, name: user.name, email: user.email, role: user.role, avatar: user.avatar, phone: user.phone } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error al actualizar perfil' });
+  }
+});
+
+// PUT /api/auth/push-token — Register push notification token
+router.put('/push-token', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { pushToken } = req.body;
+    await User.findByIdAndUpdate(req.user!._id, { pushToken });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error al registrar token' });
+  }
+});
+
+// PATCH /api/auth/location — Client updates their last known location (for proximity push)
+router.patch('/location', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { lat, lng } = req.body;
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      res.status(400).json({ success: false, message: 'Coordenadas inválidas' }); return;
+    }
+    await User.findByIdAndUpdate(req.user!._id, { lastLat: lat, lastLng: lng });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error' });
+  }
+});
+
 export default router;
+

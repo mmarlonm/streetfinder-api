@@ -9,6 +9,9 @@ export interface IUser extends Document {
   role: 'client' | 'vendor';
   avatar?: string;
   phone?: string;
+  pushToken?: string;
+  lastLat?: number;
+  lastLng?: number;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -49,6 +52,12 @@ const UserSchema = new Schema(
       type: String,
       trim: true,
     },
+    pushToken: {
+      type: String,
+      default: null,
+    },
+    lastLat: { type: Number },
+    lastLng: { type: Number },
   },
   {
     timestamps: true,

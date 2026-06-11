@@ -7,6 +7,8 @@ import connectDB from './config/db';
 import authRoutes from './routes/auth';
 import vendorRoutes from './routes/vendors';
 import categoryRoutes from './routes/categories';
+import reviewRoutes from './routes/reviews';
+import promotionRoutes from './routes/promotions';
 import { setupSocketHandlers } from './sockets/locationHandler';
 
 const app = express();
@@ -39,6 +41,8 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/promotions', promotionRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────────────
 app.use((_req, res) => {
