@@ -202,9 +202,10 @@ router.get('/nearby-clients', protect, requireRole('vendor'), async (req: AuthRe
     // Buscamos clientes que se hayan actualizado en las últimas 4 horas
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
     
-    // Buscamos usuarios con rol client que tengan coordenadas lastLat y lastLng
+    // Buscamos usuarios con rol client que tengan coordenadas lastLat y lastLng y sean visibles
     const clients = await User.find({
       role: 'client',
+      isVisible: { $ne: false },
       lastLat: { $exists: true, $ne: null },
       lastLng: { $exists: true, $ne: null },
       updatedAt: { $gte: fourHoursAgo }

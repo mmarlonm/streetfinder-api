@@ -65,6 +65,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
         role: user.role,
         avatar: user.avatar,
         phone: user.phone,
+        isVisible: user.isVisible,
       },
     });
   } catch (error: unknown) {
@@ -110,6 +111,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         role: user.role,
         avatar: user.avatar,
         phone: user.phone,
+        isVisible: user.isVisible,
       },
       vendorProfile,
     });
@@ -137,6 +139,7 @@ router.get('/me', protect, async (req: AuthRequest, res: Response): Promise<void
         role: user.role,
         avatar: user.avatar,
         phone: user.phone,
+        isVisible: user.isVisible,
       },
       vendorProfile,
     });
@@ -168,7 +171,7 @@ router.put('/profile', protect, async (req: AuthRequest, res: Response): Promise
     if (phone !== undefined) updates.phone = phone;
     const user = await User.findByIdAndUpdate(req.user!._id, updates, { new: true });
     if (!user) { res.status(404).json({ success: false, message: 'Usuario no encontrado' }); return; }
-    res.json({ success: true, user: { _id: user._id, name: user.name, email: user.email, role: user.role, avatar: user.avatar, phone: user.phone } });
+    res.json({ success: true, user: { _id: user._id, name: user.name, email: user.email, role: user.role, avatar: user.avatar, phone: user.phone, isVisible: user.isVisible } });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error al actualizar perfil' });
   }
@@ -193,7 +196,7 @@ router.patch('/location', protect, async (req: AuthRequest, res: Response): Prom
       res.status(400).json({ success: false, message: 'Coordenadas inválidas' }); return;
     }
     const user = await User.findByIdAndUpdate(req.user!._id, { lastLat: lat, lastLng: lng }, { new: true });
-    if (user && io) {
+    if (user && user.isVisible !== false && io) {
       io.emit('client:update', {
         clientId: user._id.toString(),
         name: user.name,
@@ -215,8 +218,8 @@ router.put('/craving', protect, async (req: AuthRequest, res: Response): Promise
     const user = await User.findByIdAndUpdate(req.user!._id, { craving: craving?.trim() || null }, { new: true });
     if (!user) { res.status(404).json({ success: false, message: 'Usuario no encontrado' }); return; }
 
-    // Emitir el antojo en tiempo real a todos los sockets conectados
-    if (io) {
+    // Emitir el antojo en tiempo real a todos los sockets conectados si es visible
+    if (user.isVisible !== false && io) {
       io.emit('client:craving', {
         _id: user._id.toString(),
         name: user.name,
@@ -232,6 +235,37 @@ router.put('/craving', protect, async (req: AuthRequest, res: Response): Promise
   } catch (error) {
     console.error('Craving error:', error);
     res.status(500).json({ success: false, message: 'Error al actualizar antojo' });
+  }
+});
+
+// PUT /api/auth/visibility — Toggle client visibility
+router.put('/visibility', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { isVisible } = req.body;
+    if (typeof isVisible !== 'boolean') {
+      res.status(400).json({ success: false, message: 'isVisible debe ser un valor booleano' }); return;
+    }
+    const user = await User.findByIdAndUpdate(req.user!._id, { isVisible }, { new: true });
+    if (!user) { res.status(404).json({ success: false, message: 'Usuario no encontrado' }); return; }
+
+    if (!isVisible && io) {
+      // Notificar a los vendedores que remuevan al cliente de sus mapas
+      io.emit('client:offline', { clientId: user._id.toString() });
+    } else if (isVisible && io && user.lastLat && user.lastLng) {
+      // Si se vuelve visible, notificar su ubicación actual
+      io.emit('client:update', {
+        clientId: user._id.toString(),
+        name: user.name,
+        craving: user.craving,
+        latitude: user.lastLat,
+        longitude: user.lastLng,
+      });
+    }
+
+    res.json({ success: true, isVisible: user.isVisible });
+  } catch (error) {
+    console.error('Visibility route error:', error);
+    res.status(500).json({ success: false, message: 'Error al cambiar visibilidad' });
   }
 });
 
