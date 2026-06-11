@@ -1,5 +1,7 @@
 import { Router, Response } from 'express';
 import VendorProfile, { VENDOR_CATEGORIES } from '../models/VendorProfile';
+import Promotion from '../models/Promotion';
+import User from '../models/User';
 import { protect, requireRole, AuthRequest } from '../middleware/auth';
 import { io } from '../index';
 
@@ -72,7 +74,33 @@ router.get('/nearby', protect, async (req: AuthRequest, res: Response): Promise<
       .limit(50)
       .lean();
 
-    res.status(200).json({ success: true, count: vendors.length, vendors });
+    // Buscar promociones activas para estos vendedores
+    const vendorIds = vendors.map(v => v._id);
+    const now = new Date();
+    const activePromotions = await Promotion.find({
+      vendorId: { $in: vendorIds },
+      isActive: true,
+      expiresAt: { $gt: now }
+    }).lean();
+
+    // Asociar promociones activas a los vendedores
+    const vendorsWithPromos = vendors.map(v => {
+      const promo = activePromotions.find(p => p.vendorId.toString() === v._id.toString());
+      return {
+        ...v,
+        activePromotion: promo ? {
+          _id: promo._id,
+          title: promo.title,
+          description: promo.description,
+          price: promo.price,
+          discount: promo.discount,
+          imageBase64: promo.imageBase64,
+          expiresAt: promo.expiresAt
+        } : null
+      };
+    });
+
+    res.status(200).json({ success: true, count: vendorsWithPromos.length, vendors: vendorsWithPromos });
   } catch (error) {
     console.error('Nearby vendors error:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor' });
@@ -151,6 +179,59 @@ router.patch('/status', protect, requireRole('vendor'), async (req: AuthRequest,
     res.status(200).json({ success: true, vendor });
   } catch (error) {
     console.error('Status update error:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/vendors/nearby-clients — Get active clients nearby
+router.get('/nearby-clients', protect, requireRole('vendor'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
+    const radius = parseInt(req.query.radius as string) || 2000;
+
+    if (isNaN(lat) || isNaN(lng)) {
+      res.status(400).json({ success: false, message: 'Coordenadas inválidas' });
+      return;
+    }
+
+    // Buscamos clientes que se hayan actualizado en las últimas 4 horas
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    
+    // Buscamos usuarios con rol client que tengan coordenadas lastLat y lastLng
+    const clients = await User.find({
+      role: 'client',
+      lastLat: { $exists: true, $ne: null },
+      lastLng: { $exists: true, $ne: null },
+      updatedAt: { $gte: fourHoursAgo }
+    }).select('name avatar phone lastLat lastLng updatedAt').lean();
+
+    // Calcular distancia de Haversine en metros
+    const R = 6371e3; // Radio de la tierra en metros
+    const nearbyClients = clients.filter(c => {
+      const lat1 = lat * Math.PI / 180;
+      const lat2 = c.lastLat! * Math.PI / 180;
+      const deltaLat = (c.lastLat! - lat) * Math.PI / 180;
+      const deltaLng = (c.lastLng! - lng) * Math.PI / 180;
+
+      const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                Math.cos(lat1) * Math.cos(lat2) *
+                Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+      const dist = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * R;
+      return dist <= radius;
+    }).map(c => ({
+      _id: c._id,
+      name: c.name,
+      avatar: c.avatar,
+      phone: c.phone,
+      latitude: c.lastLat,
+      longitude: c.lastLng,
+      lastActive: c.updatedAt
+    }));
+
+    res.json({ success: true, count: nearbyClients.length, clients: nearbyClients });
+  } catch (error) {
+    console.error('Nearby clients error:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 });
