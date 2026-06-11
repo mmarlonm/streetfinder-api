@@ -20,6 +20,7 @@ export interface IProduct {
   price: number;
   description?: string;
   imageBase64?: string;
+  category?: string;
 }
 
 export interface IVendorProfile extends Document {
@@ -103,6 +104,7 @@ const VendorProfileSchema: Schema<IVendorProfile> = new Schema(
           price: { type: Number, required: true },
           description: { type: String },
           imageBase64: { type: String },
+          category: { type: String, default: 'Otros' },
         }
       ],
       default: [],

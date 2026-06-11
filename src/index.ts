@@ -27,7 +27,7 @@ app.set('io', io);
 
 // ─── Middleware ───────────────────────────────────────────────────
 app.use(cors({ origin: '*', credentials: true }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Health check ─────────────────────────────────────────────────
