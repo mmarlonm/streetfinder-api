@@ -192,7 +192,16 @@ router.patch('/location', protect, async (req: AuthRequest, res: Response): Prom
     if (typeof lat !== 'number' || typeof lng !== 'number') {
       res.status(400).json({ success: false, message: 'Coordenadas inválidas' }); return;
     }
-    await User.findByIdAndUpdate(req.user!._id, { lastLat: lat, lastLng: lng });
+    const user = await User.findByIdAndUpdate(req.user!._id, { lastLat: lat, lastLng: lng }, { new: true });
+    if (user && io) {
+      io.emit('client:update', {
+        clientId: user._id.toString(),
+        name: user.name,
+        craving: user.craving,
+        latitude: lat,
+        longitude: lng,
+      });
+    }
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error' });

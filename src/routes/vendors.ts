@@ -165,15 +165,19 @@ router.patch('/status', protect, requireRole('vendor'), async (req: AuthRequest,
 
     if (!vendor) { res.status(404).json({ success: false, message: 'Perfil de vendedor no encontrado' }); return; }
 
-    // Emit vendor:online so clients immediately see the vendor on map
-    if (isActive && io && vendor.currentLocation) {
-      const [vLng, vLat] = vendor.currentLocation.coordinates;
-      io.emit('vendor:online', {
-        vendorId: vendor._id.toString(),
-        lat: vLat, lng: vLng,
-        businessName: vendor.businessName,
-        category: vendor.category,
-      });
+    // Emit vendor:online / offline so clients immediately update their map
+    if (io) {
+      if (isActive && vendor.currentLocation) {
+        const [vLng, vLat] = vendor.currentLocation.coordinates;
+        io.emit('vendor:online', {
+          vendorId: vendor._id.toString(),
+          lat: vLat, lng: vLng,
+          businessName: vendor.businessName,
+          category: vendor.category,
+        });
+      } else if (!isActive) {
+        io.emit('vendor:offline', { vendorId: vendor._id.toString() });
+      }
     }
 
     res.status(200).json({ success: true, vendor });

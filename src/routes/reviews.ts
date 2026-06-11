@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import Review from '../models/Review';
 import VendorProfile from '../models/VendorProfile';
 import { protect, AuthRequest } from '../middleware/auth';
+import { io } from '../index';
 
 const router = Router();
 
@@ -32,10 +33,21 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
     ]);
 
     if (stats.length > 0) {
-      await VendorProfile.findByIdAndUpdate(vendorId, {
-        rating: Math.round(stats[0].avg * 10) / 10,
-        totalReviews: stats[0].count,
-      });
+      const updatedVendor = await VendorProfile.findByIdAndUpdate(
+        vendorId,
+        {
+          rating: Math.round(stats[0].avg * 10) / 10,
+          totalReviews: stats[0].count,
+        },
+        { new: true }
+      );
+      if (updatedVendor && io) {
+        io.emit('vendor:stats-updated', {
+          vendorId: vendorId.toString(),
+          rating: updatedVendor.rating,
+          totalReviews: updatedVendor.totalReviews,
+        });
+      }
     }
 
     res.status(201).json({ success: true, review });

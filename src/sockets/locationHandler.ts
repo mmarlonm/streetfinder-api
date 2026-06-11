@@ -149,6 +149,24 @@ export const setupSocketHandlers = (io: Server): void => {
       }
     });
 
+    // ─── VENDOR: Stop sharing location / Go offline ───────────────
+    socket.on('vendor:offline', async () => {
+      try {
+        if (!socket.vendorProfileId) return;
+        activeVendors.delete(socket.vendorProfileId);
+
+        await VendorProfile.findByIdAndUpdate(socket.vendorProfileId, {
+          isActive: false,
+          lastSeen: new Date(),
+        });
+
+        io.emit('vendor:offline', { vendorId: socket.vendorProfileId });
+        console.log(`📴 Vendedor desconectado (manual): ${socket.vendorProfileId}`);
+      } catch (error) {
+        console.error('vendor:offline error:', error);
+      }
+    });
+
     // ─── DISCONNECT ───────────────────────────────────────────────
     socket.on('disconnect', async () => {
       console.log(`🔌 Socket desconectado: ${socket.id}`);
