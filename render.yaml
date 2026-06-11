@@ -3,8 +3,8 @@ services:
     name: streetfinder-api
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: npx ts-node src/index.ts
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
