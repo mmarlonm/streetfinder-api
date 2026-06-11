@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: streetfinder-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npx ts-node src/index.ts
+    envVars:
+      - key: NODE_ENV
+        value: production
+    autoDeploy: true
