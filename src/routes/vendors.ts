@@ -107,18 +107,6 @@ router.get('/nearby', protect, async (req: AuthRequest, res: Response): Promise<
   }
 });
 
-// GET /api/vendors/:id — Vendor detail
-router.get('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const vendor = await VendorProfile.findById(req.params.id)
-      .populate('userId', 'name avatar phone email')
-      .lean();
-    if (!vendor) { res.status(404).json({ success: false, message: 'Vendedor no encontrado' }); return; }
-    res.status(200).json({ success: true, vendor });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Error interno del servidor' });
-  }
-});
 
 // PUT /api/vendors/profile — Update vendor profile
 router.put('/profile', protect, requireRole('vendor'), async (req: AuthRequest, res: Response): Promise<void> => {
@@ -267,6 +255,19 @@ router.put('/products', protect, requireRole('vendor'), async (req: AuthRequest,
   } catch (error) {
     console.error('Update products error:', error);
     res.status(500).json({ success: false, message: 'Error al actualizar catálogo de productos' });
+  }
+});
+
+// GET /api/vendors/:id — Vendor detail
+router.get('/:id', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const vendor = await VendorProfile.findById(req.params.id)
+      .populate('userId', 'name avatar phone email')
+      .lean();
+    if (!vendor) { res.status(404).json({ success: false, message: 'Vendedor no encontrado' }); return; }
+    res.status(200).json({ success: true, vendor });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 });
 
