@@ -32,10 +32,40 @@ app.use(express.urlencoded({ extended: true }));
 
 // ─── Health check ─────────────────────────────────────────────────
 app.get(['/', '/api/health'], (_req, res) => {
+  const routes: string[] = [];
+  function getRoutes(layer: any, path: string) {
+    if (layer.route) {
+      layer.route.stack.forEach((stackItem: any) => {
+        const method = stackItem.method ? stackItem.method.toUpperCase() : '';
+        routes.push(`${method} ${path}${layer.route.path}`);
+      });
+    } else if (layer.name === 'router' && layer.handle.stack) {
+      layer.handle.stack.forEach((stackItem: any) => {
+        // Clean regex path formatting
+        let cleanPath = layer.regexp.source
+          .replace('\\/?(?=\\/|$)', '')
+          .replace('^', '')
+          .replace('\\/', '/')
+          .replace('\\', '');
+        // Remove trailing slash if present
+        if (cleanPath.endsWith('/')) {
+          cleanPath = cleanPath.slice(0, -1);
+        }
+        getRoutes(stackItem, path + cleanPath);
+      });
+    }
+  }
+  
+  app._router.stack.forEach((layer: any) => {
+    getRoutes(layer, '');
+  });
+
   res.json({
     success: true,
     message: '🚀 StreetFinder API corriendo',
     timestamp: new Date().toISOString(),
+    version: '1.0.1',
+    routes: routes.filter((r, i, arr) => arr.indexOf(r) === i), // deduplicate
   });
 });
 
