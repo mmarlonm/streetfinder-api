@@ -39,26 +39,37 @@ app.get(['/', '/api/health'], (_req, res) => {
         const method = stackItem.method ? stackItem.method.toUpperCase() : '';
         routes.push(`${method} ${path}${layer.route.path}`);
       });
-    } else if (layer.name === 'router' && layer.handle.stack) {
+    } else if (layer.handle && layer.handle.stack) {
       layer.handle.stack.forEach((stackItem: any) => {
         // Clean regex path formatting
-        let cleanPath = layer.regexp.source
-          .replace('\\/?(?=\\/|$)', '')
-          .replace('^', '')
-          .replace('\\/', '/')
-          .replace('\\', '');
-        // Remove trailing slash if present
-        if (cleanPath.endsWith('/')) {
-          cleanPath = cleanPath.slice(0, -1);
+        let cleanPath = '';
+        if (layer.regexp && layer.regexp.source) {
+          cleanPath = layer.regexp.source
+            .replace('\\/?(?=\\/|$)', '')
+            .replace('^', '')
+            .replace('\\/', '/')
+            .replace('\\', '');
+          // Remove trailing slash if present
+          if (cleanPath.endsWith('/')) {
+            cleanPath = cleanPath.slice(0, -1);
+          }
         }
         getRoutes(stackItem, path + cleanPath);
       });
     }
   }
   
-  app._router.stack.forEach((layer: any) => {
-    getRoutes(layer, '');
-  });
+  try {
+    const routerObj = (app as any).router || (app as any)._router;
+    console.log('[Health] Router object found:', !!routerObj, 'stack length:', routerObj && routerObj.stack ? routerObj.stack.length : 'undefined');
+    if (routerObj && routerObj.stack) {
+      routerObj.stack.forEach((layer: any) => {
+        getRoutes(layer, '');
+      });
+    }
+  } catch (err) {
+    console.error('[Health] Error listing routes:', err);
+  }
 
   res.json({
     success: true,
