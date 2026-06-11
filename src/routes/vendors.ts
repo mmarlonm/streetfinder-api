@@ -265,7 +265,29 @@ router.get('/:id', protect, async (req: AuthRequest, res: Response): Promise<voi
       .populate('userId', 'name avatar phone email')
       .lean();
     if (!vendor) { res.status(404).json({ success: false, message: 'Vendedor no encontrado' }); return; }
-    res.status(200).json({ success: true, vendor });
+    
+    // Find active promotion
+    const now = new Date();
+    const promo = await Promotion.findOne({
+      vendorId: vendor._id,
+      isActive: true,
+      expiresAt: { $gt: now }
+    }).lean();
+    
+    const vendorWithPromo = {
+      ...vendor,
+      activePromotion: promo ? {
+        _id: promo._id,
+        title: promo.title,
+        description: promo.description,
+        price: promo.price,
+        discount: promo.discount,
+        imageBase64: promo.imageBase64,
+        expiresAt: promo.expiresAt
+      } : null
+    };
+
+    res.status(200).json({ success: true, vendor: vendorWithPromo });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
