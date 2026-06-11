@@ -15,6 +15,13 @@ export const VENDOR_CATEGORIES = [
 
 export type CategoryId = typeof VENDOR_CATEGORIES[number]['id'];
 
+export interface IProduct {
+  name: string;
+  price: number;
+  description?: string;
+  imageBase64?: string;
+}
+
 export interface IVendorProfile extends Document {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
@@ -30,6 +37,7 @@ export interface IVendorProfile extends Document {
   lastSeen?: Date;
   rating: number;
   totalReviews: number;
+  products?: IProduct[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -87,6 +95,17 @@ const VendorProfileSchema: Schema<IVendorProfile> = new Schema(
     totalReviews: {
       type: Number,
       default: 0,
+    },
+    products: {
+      type: [
+        {
+          name: { type: String, required: true },
+          price: { type: Number, required: true },
+          description: { type: String },
+          imageBase64: { type: String },
+        }
+      ],
+      default: [],
     },
   },
   {

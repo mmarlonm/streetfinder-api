@@ -23,6 +23,8 @@ const io = new Server(httpServer, {
   transports: ['websocket', 'polling'],
 });
 
+app.set('io', io);
+
 // ─── Middleware ───────────────────────────────────────────────────
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json({ limit: '10mb' }));

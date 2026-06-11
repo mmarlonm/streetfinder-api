@@ -2,7 +2,6 @@ import { Router, Response } from 'express';
 import Review from '../models/Review';
 import VendorProfile from '../models/VendorProfile';
 import { protect, AuthRequest } from '../middleware/auth';
-import { io } from '../index';
 
 const router = Router();
 
@@ -41,6 +40,7 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
         },
         { new: true }
       );
+      const io = req.app.get('io');
       if (updatedVendor && io) {
         io.emit('vendor:stats-updated', {
           vendorId: vendorId.toString(),

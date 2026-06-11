@@ -3,7 +3,6 @@ import VendorProfile, { VENDOR_CATEGORIES } from '../models/VendorProfile';
 import Promotion from '../models/Promotion';
 import User from '../models/User';
 import { protect, requireRole, AuthRequest } from '../middleware/auth';
-import { io } from '../index';
 
 const router = Router();
 
@@ -36,6 +35,7 @@ router.patch('/location', protect, requireRole('vendor'), async (req: AuthReques
       { $set: { currentLocation: { type: 'Point', coordinates: [lng, lat] }, lastSeen: new Date() } },
       { new: true }
     );
+    const io = req.app.get('io');
     if (updated && io) {
       io.emit('vendors:update', { vendorId: updated._id.toString(), lat, lng });
     }
@@ -166,6 +166,7 @@ router.patch('/status', protect, requireRole('vendor'), async (req: AuthRequest,
     if (!vendor) { res.status(404).json({ success: false, message: 'Perfil de vendedor no encontrado' }); return; }
 
     // Emit vendor:online / offline so clients immediately update their map
+    const io = req.app.get('io');
     if (io) {
       if (isActive && vendor.currentLocation) {
         const [vLng, vLat] = vendor.currentLocation.coordinates;
@@ -239,6 +240,33 @@ router.get('/nearby-clients', protect, requireRole('vendor'), async (req: AuthRe
   } catch (error) {
     console.error('Nearby clients error:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/vendors/products — Update vendor products catalog
+router.put('/products', protect, requireRole('vendor'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { products } = req.body;
+    if (!Array.isArray(products)) {
+      res.status(400).json({ success: false, message: 'Productos debe ser un arreglo' });
+      return;
+    }
+
+    const vendor = await VendorProfile.findOneAndUpdate(
+      { userId: req.user!._id },
+      { $set: { products } },
+      { new: true }
+    ).populate('userId', 'name avatar phone');
+
+    if (!vendor) {
+      res.status(404).json({ success: false, message: 'Perfil de vendedor no encontrado' });
+      return;
+    }
+
+    res.status(200).json({ success: true, vendor });
+  } catch (error) {
+    console.error('Update products error:', error);
+    res.status(500).json({ success: false, message: 'Error al actualizar catálogo de productos' });
   }
 });
 

@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import VendorProfile from '../models/VendorProfile';
 import { protect, AuthRequest } from '../middleware/auth';
-import { io } from '../index';
 
 const router = Router();
 
@@ -196,6 +195,7 @@ router.patch('/location', protect, async (req: AuthRequest, res: Response): Prom
       res.status(400).json({ success: false, message: 'Coordenadas inválidas' }); return;
     }
     const user = await User.findByIdAndUpdate(req.user!._id, { lastLat: lat, lastLng: lng }, { new: true });
+    const io = req.app.get('io');
     if (user && user.isVisible !== false && io) {
       io.emit('client:update', {
         clientId: user._id.toString(),
@@ -219,6 +219,7 @@ router.put('/craving', protect, async (req: AuthRequest, res: Response): Promise
     if (!user) { res.status(404).json({ success: false, message: 'Usuario no encontrado' }); return; }
 
     // Emitir el antojo en tiempo real a todos los sockets conectados si es visible
+    const io = req.app.get('io');
     if (user.isVisible !== false && io) {
       io.emit('client:craving', {
         _id: user._id.toString(),
@@ -248,6 +249,7 @@ router.put('/visibility', protect, async (req: AuthRequest, res: Response): Prom
     const user = await User.findByIdAndUpdate(req.user!._id, { isVisible }, { new: true });
     if (!user) { res.status(404).json({ success: false, message: 'Usuario no encontrado' }); return; }
 
+    const io = req.app.get('io');
     if (!isVisible && io) {
       // Notificar a los vendedores que remuevan al cliente de sus mapas
       io.emit('client:offline', { clientId: user._id.toString() });
